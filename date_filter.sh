@@ -3,19 +3,53 @@
 #Given a csv file along with start and end dates. 
 #This utility creates a new file if the record falls with in the range of the start and end date
 #This could be used to create batches for calculate HOS since the eld data range is restriced to a month.
-IFS=","
-given_startDate=$(date -d $2 +"%s")
-given_endDate=$(date -d $3 +"%s")
-while read driverId startDateTime endDateTime
+
+if [ -z "$1" ]
+  then
+    echo "Usage ./date_filter csvfile.csv 2019-06-01 2019-06-30 newcsvfile.csv"
+    exit 1
+fi
+
+if [ -z "$2" ]
+  then
+    echo "Usage ./date_filter csvfile.csv 2019-06-01 2019-06-30 newcsvfile.csv"
+    exit 1
+fi
+
+if [ -z "$3" ]
+  then
+    echo "Usage ./date_filter csvfile.csv 2019-06-01 2019-06-30 newcsvfile.csv"
+    exit 1
+fi
+
+if [ -z "$4" ]
+  then
+    echo "Usage ./date_filter csvfile.csv 2019-06-01 2019-06-30 newcsvfile.csv"
+    exit 1
+fi
+
+input_file=$1
+input_start_date=$2
+input_end_date=$3
+fmt_start_date=$(date -d $input_start_date +"%s")
+fmt_end_date=$(date -d $input_end_date +"%s")
+output_file=$4
+rm -rf $output_file
+while IFS=, read driverId startDateTime endDateTime
 do
-     fileStartDateTime=$(date -d $startDateTime +"%s")
-     fileEndDateTime=$(date -d $endDateTime +"%s")
-     #echo "$startDateTime"
-     if [[ "$fileStartDateTime" -ge  "$given_startDate" && "$fileEndDateTime" -le "$given_endDate" ]];
+     rec_start_date=$(date -d $startDateTime +"%s")
+     rec_end_date=$(date -d $endDateTime +"%s")
+     if [[ "$rec_start_date" -ge  "$fmt_start_date" && "$rec_end_date" -le "$fmt_end_date" ]];
      then
-        echo "$driverId,$startDateTime ,$endDateTime" >> $4
-     elif [[ "$fileStartDateTime" -le  "$given_startDate" && "$fileEndDateTime" -ge "$given_endDate" ]];
+        echo "$driverId,$startDateTime,$endDateTime" >> $output_file
+     elif [[ "$rec_start_date" -le  "$fmt_start_date" && "$rec_end_date" -ge "$fmt_end_date" ]];
      then
-        echo "$driverId,$2T00:00:00 ,$3T00:00:00" >> $4
+        echo "$driverId,"$input_start_date"T00:00:00,"$input_end_date"T23:59:59" >> $output_file
+     elif [[ "$rec_end_date" -le "$fmt_end_date" && "$rec_end_date" -ge "$fmt_start_date" ]] || [[ "$rec_start_date" -ge "$fmt_start_date" && "$rec_end_date" -ge "$fmt_end_date" ]];
+     then
+        echo "$driverId,"$input_start_date"T00:00:00,"$endDateTime"" >> $output_file
+     elif [[ "$rec_start_date" -ge "$fmt_start_date" && "$rec_end_date" -ge "$fmt_end_date" ]];
+     then
+       echo "$driverId,"$startDateTime","$input_end_date"T23:59:59" >> $output_file
      fi
-done < $1
+done < $input_file
