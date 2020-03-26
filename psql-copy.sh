@@ -7,7 +7,7 @@ while getopts ":e:c:f:t:d:s:l:" opt; do
     ;;
     c) carrier_id="$OPTARG"
     ;;
-    f) retreive_since="$OPTARG"
+    f) retrieve_since="$OPTARG"
     ;;
     t) retreive_till="$OPTARG"
     ;;
@@ -25,7 +25,7 @@ done
 week_before=$(date -d "$date -2 days" +"%Y-%m-%d")
 today=$(date -d "$date -0 days" +"%Y-%m-%d")
 
-retreive_since=${retrieve_since:-$week_before}
+retrieve_since=${retrieve_since:-$week_before}
 retreive_till=${retreive_till:-$today}
 import_schema=${import_schema:="yes"}
 export_data=${export_data:="yes"}
@@ -46,7 +46,7 @@ default_location=/tmp/$carrier_id
 location=${user_location:-$default_location}
 
 
-echo "Data copying from environment: $environment for carrier_id= $carrier_id from date=$retreive_since till= $retreive_till.  More options: export data = $export_data, erase data-= $import_schema, file location = $location"
+echo "Data copying from environment: $environment for carrier_id= $carrier_id from date=$retrieve_since till= $retreive_till.  More options: export data = $export_data, erase data-= $import_schema, file location = $location"
 
 if [ "$export_data" = "yes" ];
 then
@@ -63,10 +63,10 @@ then
   psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.terminal) To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/terminal.csv
 
   psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.eld where carrier_id='"$carrier_id"') To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/eld.csv
-  psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.event where carrier_id='"$carrier_id"' and event_timestamp >= '"$retreive_since"' and event_timestamp >= '"$retreive_till"') To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/event.csv
+  psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.event where carrier_id='"$carrier_id"' and event_timestamp between '"$retrieve_since"' and '"$retreive_till"') To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/event.csv
 
   #psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.trailer) To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/trailer.csv
-  #psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.event_has_trailer where event_id in (select event_id from eld.event where carrier_id='"$carrier_id"'  and event_timestamp >= '"$retreive_since"' and event_timestamp >= '"$retreive_till"')) To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/event_has_trailer.csv
+  #psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.event_has_trailer where event_id in (select event_id from eld.event where carrier_id='"$carrier_id"'  and event_timestamp >= '"$retrieve_since"' and event_timestamp >= '"$retreive_till"')) To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/event_has_trailer.csv
 
   psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.driver where carrier_id='"$carrier_id"') To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/driver.csv
   psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.driver_hos_cycle where driver_id in (select id from eld.driver where carrier_id='"$carrier_id"')) To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/driver_hos_cycle.csv
@@ -82,11 +82,11 @@ then
   psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.hos_ruleset_exemption where hos_ruleset_id in (select id from eld.hos_ruleset where driver_id in (select id from eld.driver where carrier_id='"$carrier_id"'))) To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/hos_ruleset_exemption.csv
 
 
-  psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.output_file_batch where created ='"$retreive_since"') To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/output_file_batch.csv
-  psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.output_file where output_file_batch_id in (select id from eld.output_file_batch where created ='"$retreive_since"')) To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/output_file.csv
+  psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.output_file_batch where created >='"$retrieve_since"') To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/output_file_batch.csv
+  psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.output_file where output_file_batch_id in (select id from eld.output_file_batch where created >='"$retrieve_since"')) To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/output_file.csv
 
-  psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.unassigned_trip where carrier_id ='"$carrier_id"' and created ='"$retreive_since"') To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/unassigned_trip.csv
-  psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.unassigned_trip_has_events where trip_id in (select id from eld.unassigned_trip where carrier_id='"$carrier_id"' and created ='"$retreive_since"')) To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/unassigned_trip_has_events.csv
+  psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.unassigned_trip where carrier_id ='"$carrier_id"' and start_date >= '"$retrieve_since"' and end_date <= '"$retreive_till"') To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/unassigned_trip.csv
+  psql -U eld -h "$rds_host_name"  -d eld -c "COPY (select * from eld.unassigned_trip_has_events where trip_id in (select id from eld.unassigned_trip where carrier_id='"$carrier_id"' and start_date >='"$retrieve_since"' and end_date <= '"$retreive_till"')) To STDOUT With CSV HEADER DELIMITER ',';" > "$location"/unassigned_trip_has_events.csv
 
 fi
 
@@ -117,13 +117,16 @@ psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.carrier_hos_cycle
 psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.bill_of_lading FROM '"$location"/bill_of_lading.csv' DELIMITER ',' CSV HEADER"
 psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.vehicle FROM '"$location"/vehicle.csv' DELIMITER ',' CSV HEADER"
 psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.terminal FROM '"$location"/terminal.csv' DELIMITER ',' CSV HEADER"
+
+psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.driver FROM '"$location"/driver.csv' DELIMITER ',' CSV HEADER"
+psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.driver_hos_cycle FROM '"$location"/driver_hos_cycle.csv' DELIMITER ',' CSV HEADER"
+psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.driver_terminal_history FROM '"$location"/driver_terminal_history.csv' DELIMITER ',' CSV HEADER"
+
+
 psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.eld FROM '"$location"/eld.csv' DELIMITER ',' CSV HEADER"
 psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.event FROM '"$location"/event.csv' DELIMITER ',' CSV HEADER"
 #psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.trailer FROM '"$location"/trailer.csv' DELIMITER ',' CSV HEADER"
 #psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.event_has_trailer FROM '"$location"/event_has_trailer.csv' DELIMITER ',' CSV HEADER"
-psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.driver FROM '"$location"/driver.csv' DELIMITER ',' CSV HEADER"
-psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.driver_hos_cycle FROM '"$location"/driver_hos_cycle.csv' DELIMITER ',' CSV HEADER"
-psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.driver_terminal_history FROM '"$location"/driver_terminal_history.csv' DELIMITER ',' CSV HEADER"
 psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.carrier_edit FROM '"$location"/carrier_edit.csv' DELIMITER ',' CSV HEADER"
 
 psql -U postgres -h "$destination_server" -d eld -c "\COPY eld.hos_ruleset_available FROM '"$location"/hos_ruleset_available.csv' DELIMITER ',' CSV HEADER"
